@@ -6,15 +6,70 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DownloadView: View {
     @ObservedObject private var vm = Downloads.this
+
+    #if os(iOS)
+        @State private var importing = false
+        @State private var importError: String?
+        @State private var importedInstaller: Installer?
+    #endif
 
     var body: some View {
         content
             .navigationTitle("Downloads")
             .inNavigationRoot()
+        #if os(iOS)
+            .fileImporter(
+                isPresented: $importing,
+                allowedContentTypes: [.item],
+                allowsMultipleSelection: false,
+            ) { result in
+                switch result {
+                case let .success(urls):
+                    guard let url = urls.first else { return }
+                    importPackage(at: url)
+                case let .failure(error):
+                    importError = error.localizedDescription
+                }
+            }
+            .sheet(item: $importedInstaller) {
+                $0.destroy()
+                importedInstaller = nil
+            } content: {
+                InstallerView(installer: $0)
+            }
+            .alert("Import Failed", isPresented: Binding(
+                get: { importError != nil },
+                set: { if !$0 { importError = nil } },
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(importError ?? "")
+            }
+        #endif
     }
+
+    /// An IPA downloaded with another tool still carries Apple's signature, so
+    /// the local installer can serve it once it is inside app storage.
+    #if os(iOS)
+        private func importPackage(at url: URL) {
+            do {
+                let staged = try ImportedPackage.stage(from: url)
+                Task { @MainActor in
+                    do {
+                        importedInstaller = try await Installer(archive: staged.archive, path: staged.url)
+                    } catch {
+                        importError = error.localizedDescription
+                    }
+                }
+            } catch {
+                importError = error.localizedDescription
+            }
+        }
+    #endif
 
     private var content: some View {
         Group {
@@ -43,8 +98,19 @@ struct DownloadView: View {
         }
         .groupedFormStyle()
         .toolbar {
-            NavigationLink(destination: AddDownloadView()) {
-                Image(systemName: "plus")
+            #if os(iOS)
+                ToolbarItem {
+                    Button {
+                        importing = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                }
+            #endif
+            ToolbarItem {
+                NavigationLink(destination: AddDownloadView()) {
+                    Image(systemName: "plus")
+                }
             }
         }
     }
