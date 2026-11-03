@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Asspp is a multi-account App Store management app (iOS + macOS) for searching, downloading, and installing IPA files. It uses an Xcode workspace (`Asspp.xcworkspace`) with SPM dependencies including [ApplePackage](https://github.com/Lakr233/ApplePackage), the core library for App Store API communication, IPA handling, and signature injection.
 
-Bundle ID: `wiki.qaq.Asspp`. Deployment targets: iOS 17.0, macOS 15.0. Supports iPhone, iPad, and Mac (native, not Catalyst). No test targets exist.
+Bundle ID: `wiki.qaq.Asspp`. Deployment targets: iOS 15.0 (this `ios-15` branch; upstream `main` is iOS 17.0), macOS 15.0. Supports iPhone, iPad, and Mac (native, not Catalyst). No test targets exist. There is no local Mac here: iOS builds only run in GitHub Actions (`Build App` workflow), so compile errors surface only after pushing.
 
 ## Build Commands
 
@@ -67,7 +67,8 @@ SwiftUI views organized by feature: Account, Search, Download, Installed (macOS 
 
 ### Key Patterns
 
-- **Observation**: `AppStore`, `Downloads`, `Installer`, `DeviceManager`, `PackageManifest` all use `@Observable` (not legacy `ObservableObject`).
+- **Observation**: `AppStore`, `Downloads`, `Installer`, `PackageManifest`, `AppPackageArchive` are `ObservableObject` with `@Published` / `@PublishedPersist` so they work on iOS 15. `@Observable` is only allowed inside `#if os(macOS)` code (macOS 14+), e.g. `DeviceManager`. In views, bind singletons with `@ObservedObject`, view-owned models with `@StateObject`.
+- **iOS 15 floor**: modern SwiftUI APIs go through the gates in `Asspp/Interface/Utils/ViewBackports.swift` (`inNavigationRoot()`, `groupedFormStyle()`, `onChangeCompact(of:)`, `mediumAndLargeDetents()`, `Animation.springDefault`) instead of being used directly. A `NavigationView`/`NavigationPath`/`formStyle`/`Task.sleep(for:)` reference outside those gates breaks the Actions build.
 - **Persistence**: Custom `@PublishedPersist` / `@Persist` property wrappers (in `Extension/PublishedPersist.swift`) back properties to file storage (`Documents/Config/`) or Keychain. Accounts stored in Keychain; downloads and settings use file storage.
 - **Platform branching**: Heavy use of `#if os(macOS)` / `#if os(iOS)` / `#if canImport(UIKit)` for platform-specific code paths.
 - **Singletons**: `AppStore.this`, `Downloads.this` are `@MainActor` singletons.

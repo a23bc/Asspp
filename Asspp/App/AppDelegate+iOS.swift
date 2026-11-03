@@ -24,12 +24,13 @@
         @MainActor
         private func observeDownloadCount() {
             updateIdleState()
-            // objectWillChange fires before the mutation lands, so read the
-            // value on the next runloop pass instead of inline.
             downloadObserver = Downloads.this.objectWillChange
-                .receive(on: RunLoop.main)
                 .sink { [weak self] _ in
-                    self?.updateIdleState()
+                    // objectWillChange fires before the mutation lands, so read
+                    // the count on the next main-actor turn.
+                    Task { @MainActor in
+                        self?.updateIdleState()
+                    }
                 }
         }
 

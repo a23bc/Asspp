@@ -46,7 +46,7 @@ Fork this repository to automatically build and sign the app with your own devel
 
 ## 🛠 Requirements
 
-- **iOS**: iOS 17.0 or later.
+- **iOS**: iOS 15.0 or later (this `ios-15` branch; upstream `main` requires iOS 17.0).
 - **macOS**: macOS 15.0 or later.
 - **Apple ID**: Required to communicate with App Store APIs.
 
