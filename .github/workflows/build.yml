@@ -72,16 +72,18 @@ jobs:
             exit 0
           fi
           {
-            echo "### Availability errors (grouped by required OS version)"
+            echo "### Availability errors (grouped)"
             echo '```'
             grep -oE "'.*' is only available in (iOS|macOS|tvOS) [0-9.]+ or newer" "$LOG" \
-              | sort | uniq -c | sort -rn
+              | sort | uniq -c | sort -rn || echo none
             echo '```'
             echo "### Distinct errors"
             echo '```'
-            grep -E "error: " "$LOG" | sed -E 's#.*/(Asspp|Configuration|Resources)/#\1/#' | sort -u | head -80
+            grep -E "error: " "$LOG" \
+              | sed -E 's#.*/(Asspp|Configuration|Resources)/#\1/#' | sort -u | head -80 || echo none
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
 
       - name: Upload build log
         if: always()
