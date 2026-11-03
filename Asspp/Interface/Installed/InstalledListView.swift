@@ -106,7 +106,7 @@
                     case .checking:
                         Text("Checking")
                     case let .downloading(manifest):
-                        Text("Downloading \(manifest.state.percent * 100, specifier: "%.02f")%")
+                        DownloadingLabel(manifest: manifest)
                     case .installing:
                         Text("Installing")
                     }
@@ -123,6 +123,16 @@
                 }
             }
             .animation(.smooth, value: app.state)
+        }
+    }
+
+    /// Owns the manifest so a ticking `state` re-renders this label only,
+    /// instead of forwarding every progress tick through the whole list.
+    private struct DownloadingLabel: View {
+        @ObservedObject var manifest: PackageManifest
+
+        var body: some View {
+            Text("Downloading \(manifest.state.percent * 100, specifier: "%.02f")%")
         }
     }
 #endif
