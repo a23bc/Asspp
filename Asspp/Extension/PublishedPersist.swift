@@ -188,6 +188,13 @@ struct PublishedPersist<Value: Codable> {
     func save() {
         _value.save()
     }
+
+    /// Account creation must reach persistent storage before reporting success.
+    /// The caller is responsible for sending `objectWillChange` because this
+    /// bypasses the subscript that normally publishes writes.
+    func setAndSave(_ value: Value) throws {
+        try _value.setAndSave(value)
+    }
 }
 
 extension Persist {

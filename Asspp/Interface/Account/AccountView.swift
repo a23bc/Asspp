@@ -9,10 +9,12 @@ import ApplePackage
 import SwiftUI
 
 struct AccountView: View {
-    @State private var vm = AppStore.this
+    @ObservedObject private var vm = AppStore.this
     @State private var addAccount = false
     @State private var selectedID: AppStore.UserAccount.ID?
-    @State private var navigationPath = NavigationPath()
+    #if os(macOS)
+        @State private var navigationPath = NavigationPath()
+    #endif
 
     var body: some View {
         #if os(macOS)
@@ -120,61 +122,69 @@ struct AccountView: View {
 
     #if !os(macOS)
         private var iOSBody: some View {
-            NavigationStack(path: $navigationPath) {
-                Group {
-                    if vm.accounts.isEmpty {
-                        ContentUnavailableView(
-                            label: {
-                                Label("No Accounts", systemImage: "person.crop.circle.badge.questionmark")
-                            },
-                            description: {
-                                Text("Add an Apple ID to start downloading IPA packages.")
-                            },
-                            actions: {
-                                Button("Add Account") { addAccount.toggle() }
-                            },
-                        )
-                    } else {
-                        Form {
-                            Section {
-                                ForEach(vm.accounts) { account in
-                                    NavigationLink(value: account.id) {
-                                        HStack {
-                                            Text(account.account.email)
-                                                .redacted(reason: .placeholder, isEnabled: vm.demoMode)
-                                            Spacer()
-                                        }
-                                        .badge(ApplePackage.Configuration.countryCode(for: account.account.store) ?? account.account.store)
-                                    }
-                                }
-                            } header: {
-                                Text("Apple IDs")
-                            } footer: {
-                                Text("Your accounts are saved in your Keychain and will be synced across devices with the same iCloud account signed in.")
+            Group {
+                if vm.accounts.isEmpty {
+                    emptyState
+                } else {
+                    accountList
+                }
+            }
+            .navigationTitle("Accounts")
+            .toolbar {
+                ToolbarItem {
+                    Button {
+                        addAccount.toggle()
+                    } label: {
+                        Label("Add Account", systemImage: "plus")
+                    }
+                }
+            }
+            .inNavigationRoot()
+            .sheet(isPresented: $addAccount) {
+                AddAccountView()
+                    .inNavigationRoot()
+            }
+        }
+
+        private var accountList: some View {
+            Form {
+                Section {
+                    ForEach(vm.accounts) { account in
+                        NavigationLink(destination: AccountDetailView(accountId: account.id)) {
+                            HStack {
+                                Text(account.account.email)
+                                    .redacted(reason: .placeholder, isEnabled: vm.demoMode)
+                                Spacer()
+                                Text(ApplePackage.Configuration.countryCode(for: account.account.store) ?? account.account.store)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
                             }
                         }
-                        .formStyle(.grouped)
                     }
-                }
-                .navigationDestination(for: AppStore.UserAccount.ID.self) { id in
-                    AccountDetailView(accountId: id)
-                }
-                .navigationTitle("Accounts")
-                .toolbar {
-                    ToolbarItem {
-                        Button {
-                            addAccount.toggle()
-                        } label: {
-                            Label("Add Account", systemImage: "plus")
-                        }
-                    }
+                } header: {
+                    Text("Apple IDs")
+                } footer: {
+                    Text("Your accounts are saved in your Keychain and will be synced across devices with the same iCloud account signed in.")
                 }
             }
-            .sheet(isPresented: $addAccount) {
-                NavigationStack {
-                    AddAccountView()
-                }
+            .groupedFormStyle()
+        }
+
+        private var emptyState: some View {
+            VStack(spacing: 12) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("No Accounts")
+                    .font(.headline)
+                Text("Add an Apple ID to start downloading IPA packages.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Add Account") { addAccount.toggle() }
             }
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     #endif
 }

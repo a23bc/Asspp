@@ -8,42 +8,40 @@
 import SwiftUI
 
 struct DownloadView: View {
-    @State private var vm = Downloads.this
+    @ObservedObject private var vm = Downloads.this
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Downloads")
-        }
+        content
+            .navigationTitle("Downloads")
+            .inNavigationRoot()
     }
 
     private var content: some View {
         Group {
             if vm.manifests.isEmpty {
-                ContentUnavailableView(
-                    label: {
-                        Label("No Downloads", systemImage: "arrow.down.circle")
-                    },
-                    description: {
-                        Text("Search for an app or add a download link to get started.")
-                    },
-                    actions: {
-                        NavigationLink("Add Download") {
-                            AddDownloadView()
-                        }
-                    },
-                )
+                VStack(spacing: 12) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+                    Text("No Downloads")
+                        .font(.headline)
+                    Text("Search for an app or add a download link to get started.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    NavigationLink(destination: AddDownloadView()) {
+                        Text("Add Download")
+                    }
+                }
                 .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Form {
                     packageList
                 }
             }
         }
-        .formStyle(.grouped)
-        .navigationDestination(for: PackageManifest.self) { manifest in
-            PackageView(pkg: manifest)
-        }
+        .groupedFormStyle()
         .toolbar {
             NavigationLink(destination: AddDownloadView()) {
                 Image(systemName: "plus")
@@ -60,14 +58,14 @@ struct DownloadView: View {
 
 private struct PackageManifestRow: View {
     let manifest: PackageManifest
-    @State private var vm = Downloads.this
+    @ObservedObject private var vm = Downloads.this
 
     var body: some View {
-        NavigationLink(value: manifest) {
+        NavigationLink(destination: PackageView(pkg: manifest)) {
             VStack(spacing: 8) {
                 ArchivePreviewView(archive: manifest.package)
                 SimpleProgress(progress: manifest.state.percent)
-                    .animation(.interactiveSpring, value: manifest.state.percent)
+                    .animation(.interactiveSpringDefault, value: manifest.state.percent)
                 HStack {
                     Text(manifest.hint)
                     Spacer()

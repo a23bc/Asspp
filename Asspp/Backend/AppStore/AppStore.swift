@@ -6,63 +6,33 @@
 //
 
 import ApplePackage
+import Combine
 import Foundation
 
-@Observable
 @MainActor
-class AppStore {
-    @ObservationIgnored
-    private var _accounts = Persist<[UserAccount]>(
+class AppStore: ObservableObject {
+    @PublishedPersist(
         key: "Accounts",
         defaultValue: [],
-        engine: KeychainStorage(service: "wiki.qaq.Asspp.Accounts"),
+        keychain: "wiki.qaq.Asspp.Accounts",
     )
+    var accounts: [UserAccount]
 
-    var accounts: [UserAccount] {
-        get {
-            access(keyPath: \.accounts)
-            return _accounts.wrappedValue
-        }
-        set {
-            withMutation(keyPath: \.accounts) {
-                _accounts.wrappedValue = newValue
-            }
-        }
-    }
-
-    @ObservationIgnored
-    private var _deviceIdentifier = Persist<String>(
+    @PublishedPersist(
         key: "DeviceIdentifier",
         defaultValue: "",
-        engine: KeychainStorage(service: "wiki.qaq.Asspp.DeviceIdentifier"),
+        keychain: "wiki.qaq.Asspp.DeviceIdentifier",
     )
+    var deviceIdentifier: String
 
-    var deviceIdentifier: String {
-        get {
-            access(keyPath: \.deviceIdentifier)
-            return _deviceIdentifier.wrappedValue
-        }
-        set {
-            withMutation(keyPath: \.deviceIdentifier) {
-                _deviceIdentifier.wrappedValue = newValue
-            }
-            ApplePackage.Configuration.deviceIdentifier = newValue
-        }
-    }
+    @PublishedPersist(key: "DemoMode", defaultValue: false)
+    var demoMode: Bool
 
-    @ObservationIgnored
-    private var _demoMode = Persist<Bool>(key: "DemoMode", defaultValue: false)
-
-    var demoMode: Bool {
-        get {
-            access(keyPath: \.demoMode)
-            return _demoMode.wrappedValue
-        }
-        set {
-            withMutation(keyPath: \.demoMode) {
-                _demoMode.wrappedValue = newValue
-            }
-        }
+    /// Assigns the identifier and mirrors it into ApplePackage, which reads it
+    /// for every store request.
+    func setDeviceIdentifier(_ value: String) {
+        deviceIdentifier = value
+        ApplePackage.Configuration.deviceIdentifier = value
     }
 
     static let this = AppStore()
@@ -83,7 +53,7 @@ class AppStore {
         // Preserve identifiers used by existing accounts until the user edits them.
         if deviceIdentifier.isEmpty || (accounts.isEmpty && Self.normalizedDeviceIdentifier(deviceIdentifier) == nil) {
             if let systemIdentifier = (try? ApplePackage.DeviceIdentifier.system()).flatMap(Self.normalizedDeviceIdentifier) {
-                deviceIdentifier = systemIdentifier
+                setDeviceIdentifier(systemIdentifier)
                 logger.info("obtained system device identifier")
             } else {
                 logger.info("using a generated device identifier")
@@ -91,7 +61,7 @@ class AppStore {
                 while Self.normalizedDeviceIdentifier(randomIdentifier) == nil {
                     randomIdentifier = ApplePackage.DeviceIdentifier.random()
                 }
-                deviceIdentifier = randomIdentifier
+                setDeviceIdentifier(randomIdentifier)
             }
         }
         ApplePackage.Configuration.deviceIdentifier = deviceIdentifier
@@ -104,9 +74,8 @@ class AppStore {
         let updatedAccounts = (accounts.filter { $0.account.email != email } + [account])
             .sorted { $0.account.email < $1.account.email }
         do {
-            try withMutation(keyPath: \.accounts) {
-                try _accounts.setAndSave(updatedAccounts)
-            }
+            try _accounts.setAndSave(updatedAccounts)
+            objectWillChange.send()
         } catch {
             throw AccountStorageError()
         }

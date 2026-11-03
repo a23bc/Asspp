@@ -6,6 +6,7 @@
 //
 
 import ApplePackage
+import Combine
 import Kingfisher
 import SwiftUI
 
@@ -14,10 +15,9 @@ import SwiftUI
 /// clears it — so the one-shot survives the view being recreated when the user
 /// switches sidebar sections.
 @MainActor
-@Observable
-final class SearchFieldFocus {
+final class SearchFieldFocus: ObservableObject {
     static let shared = SearchFieldFocus()
-    var pending = false
+    @Published var pending = false
     func requestFocus() {
         pending = true
     }
@@ -27,7 +27,7 @@ struct SearchView: View {
     @AppStorage("searchKey") var searchKey = ""
     @AppStorage("searchRegion") var searchRegion = "US"
     @FocusState var searchKeyFocused
-    @State private var searchFocus = SearchFieldFocus.shared
+    @ObservedObject private var searchFocus = SearchFieldFocus.shared
     @State private var searchType = EntityType.iPhone
 
     @State private var searching = false
@@ -41,8 +41,7 @@ struct SearchView: View {
         @State private var searchResult: [AppStore.AppPackage] = []
     #endif
 
-    @State private var navigationPath = NavigationPath()
-    @State private var vm = AppStore.this
+    @ObservedObject private var vm = AppStore.this
     @Environment(\.horizontalSizeClass) var horizontalSizeClass
     var possibleRegion: Set<String> {
         vm.possibleRegions
@@ -50,17 +49,17 @@ struct SearchView: View {
 
     var body: some View {
         #if os(iOS)
-            NavigationStack(path: $navigationPath) {
+            Group {
                 if #available(iOS 26.0, *) {
                     modernContent
                 } else {
                     legacyContent
                 }
             }
+            .inNavigationRoot()
         #else
-            NavigationStack(path: $navigationPath) {
-                legacyContent
-            }
+            legacyContent
+                .inNavigationRoot()
         #endif
     }
 
@@ -72,7 +71,7 @@ struct SearchView: View {
         } label: {
             Label("Type", systemImage: searchType.iconName)
         }
-        .onChange(of: searchType) { _, _ in
+        .onChangeCompact(of: searchType) { _ in
             searchResult = []
         }
     }
@@ -106,7 +105,7 @@ struct SearchView: View {
         } label: {
             Label(searchRegion, systemImage: "globe")
         }
-        .onChange(of: searchRegion) { _, _ in
+        .onChangeCompact(of: searchRegion) { _ in
             searchResult = []
         }
     }
@@ -141,7 +140,7 @@ struct SearchView: View {
             if searching || !searchResult.isEmpty {
                 Section(searching ? "Searching..." : "\(searchResult.count) Results") {
                     ForEach(searchResult) { item in
-                        NavigationLink(value: ProductDestination(archive: item, region: searchRegion)) {
+                        NavigationLink(destination: ProductView(archive: item, region: searchRegion)) {
                             ArchivePreviewView(archive: item)
                         }
                     }
@@ -150,17 +149,11 @@ struct SearchView: View {
                 .transition(.opacity)
             }
         }
-        .formStyle(.grouped)
-        .animation(.spring, value: searchError)
-        .navigationDestination(for: ProductDestination.self) { dest in
-            ProductView(archive: dest.archive, region: dest.region, navigationPath: $navigationPath)
-        }
-        .navigationDestination(for: PackageManifest.self) { manifest in
-            PackageView(pkg: manifest)
-        }
-        .animation(.spring, value: searchResult)
+        .groupedFormStyle()
+        .animation(.springDefault, value: searchError)
+        .animation(.springDefault, value: searchResult)
         .onAppear { consumePendingFocus() }
-        .onChange(of: searchFocus.pending) { _, isPending in
+        .onChangeCompact(of: searchFocus.pending) { isPending in
             if isPending {
                 consumePendingFocus()
             }
@@ -227,11 +220,6 @@ struct SearchView: View {
     }
 }
 
-struct ProductDestination: Hashable {
-    let archive: AppStore.AppPackage
-    let region: String
-}
-
 extension SearchView {
     var legacyContent: some View {
         content
@@ -279,8 +267,8 @@ extension SearchView {
                         .padding([.bottom, .horizontal])
                     }
                 }
-                .animation(.spring, value: searchResult)
-                .animation(.spring, value: searching)
+                .animation(.springDefault, value: searchResult)
+                .animation(.springDefault, value: searching)
         }
 
         var navigationBarVisibility: Visibility {

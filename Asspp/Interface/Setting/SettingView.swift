@@ -14,7 +14,7 @@ import SwiftUI
 
 struct SettingView: View {
     @Environment(\.openURL) private var openURL
-    @State private var vm = AppStore.this
+    @ObservedObject private var vm = AppStore.this
 
     @State private var showDeviceIdWarning = false
     @State private var editingDeviceId = false
@@ -22,9 +22,8 @@ struct SettingView: View {
     @State private var showResetConfirmation = false
 
     var body: some View {
-        NavigationStack {
-            formContent
-        }
+        formContent
+            .inNavigationRoot()
     }
 
     private var normalizedDeviceID: String? {
@@ -34,7 +33,7 @@ struct SettingView: View {
     private func saveDeviceID() {
         guard let identifier = normalizedDeviceID else { return }
         // The AppStore setter also propagates this to ApplePackage.Configuration.
-        vm.deviceIdentifier = identifier
+        vm.setDeviceIdentifier(identifier)
         editingDeviceId = false
     }
 
@@ -148,7 +147,7 @@ struct SettingView: View {
                 Text("This will reset all your settings.")
             }
         }
-        .formStyle(.grouped)
+        .groupedFormStyle()
         .navigationTitle("Settings")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -170,7 +169,7 @@ struct SettingView: View {
                     NSApp.terminate(nil)
                 #endif
                 Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
                     exit(0)
                 }
             }
