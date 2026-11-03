@@ -37,8 +37,31 @@ class Installer: Identifiable, ObservableObject, @unchecked Sendable {
         app = try await Self.setupApp(port: port, secured: true)
         logger.info("Installer app setup completed for ID: \(id)")
 
+        // iOS may probe the package with HEAD before it commits to a GET, and
+        // only GET routes exist today, so record what it asks for and answer
+        // the probe with the real size instead of a silent 404.
+        app.on(.head, "*") { [weak self] req in
+            guard let self else { return Response(status: .badGateway) }
+            logger.info("installer HEAD \(req.url.path) for installer id: \(self.id)")
+            var size: Int64?
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: packagePath.path) {
+                size = attrs[.size] as? Int64
+            }
+            guard req.url.path == payloadEndpoint.path, let size else {
+                return Response(status: .notFound)
+            }
+            return Response(status: .ok, version: req.version, headers: [
+                "Content-Length": String(size),
+                "Accept-Ranges": "bytes",
+            ])
+        }
+
         app.get("*") { [weak self] req in
             guard let self else { return Response(status: .badGateway) }
+
+            if let range = req.headers.first(name: "Range") {
+                logger.info("installer GET \(req.url.path) range=\(range) for installer id: \(self.id)")
+            }
 
             switch req.url.path {
             case "/ping":
@@ -50,6 +73,7 @@ class Installer: Identifiable, ObservableObject, @unchecked Sendable {
             case plistEndpoint.path:
                 await MainActor.run { self.status = .sendingManifest }
                 logger.info("sending manifest for installer id: \(self.id)")
+                logger.info("manifest offers bundle=\(archive.software.bundleID) version=\(archive.software.version) payload=\(payloadEndpoint.absoluteString)")
                 return Response(status: .ok, version: req.version, headers: [
                     "Content-Type": "text/xml",
                 ], body: .init(data: installManifestData))
