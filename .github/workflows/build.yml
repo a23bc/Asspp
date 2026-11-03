@@ -2,9 +2,10 @@ name: Build App
 
 on:
   push:
-    branches: [main]
+    branches: [main, ios-15]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-ios:
@@ -60,6 +61,35 @@ jobs:
         with:
           name: Asspp.ipa
           path: Asspp.ipa
+
+      - name: Report availability errors
+        if: always()
+        run: |
+          set -uo pipefail
+          LOG=build/xcodebuild-ios.log
+          if [ ! -f "$LOG" ]; then
+            echo "### No build log produced" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Availability errors (grouped by required OS version)"
+            echo '```'
+            grep -oE "'.*' is only available in (iOS|macOS|tvOS) [0-9.]+ or newer" "$LOG" \
+              | sort | uniq -c | sort -rn
+            echo '```'
+            echo "### Distinct errors"
+            echo '```'
+            grep -E "error: " "$LOG" | sed -E 's#.*/(Asspp|Configuration|Resources)/#\1/#' | sort -u | head -80
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-ios-log
+          path: build/xcodebuild-ios.log
+          retention-days: 30
 
   build-osx:
     runs-on: macos-26

@@ -26,6 +26,9 @@ CODE_SIGNING_REQUIRED = NO
 CODE_SIGNING_ALLOWED = NO
 EOF
 
+mkdir -p "$SRCROOT/build"
+BUILD_LOG="$SRCROOT/build/xcodebuild-ios.log"
+
 xcodebuild -workspace "$WORKSPACE" \
     -scheme "$SCHEME" \
     -configuration Release \
@@ -35,7 +38,7 @@ xcodebuild -workspace "$WORKSPACE" \
     DEVELOPMENT_TEAM="" CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO" \
     GCC_GENERATE_DEBUGGING_SYMBOLS=YES STRIP_INSTALLED_PRODUCT=NO \
     COPY_PHASE_STRIP=NO UNSTRIPPED_PRODUCT=NO \
-    | xcbeautify
+    2>&1 | tee "$BUILD_LOG" | xcbeautify
 
 BUILD_PRODUCT_PATH=""
 for i in $(find "$SRCROOT/build/DerivedDataApp" -name "$BUILD_PRODUCT"); do
