@@ -35,33 +35,39 @@ struct LogView: View {
     var body: some View {
         ZStack {
             if unlocked {
-                List {
-                    ForEach(Array(messages.enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.system(.footnote, design: .monospaced))
-                            .lineLimit(nil)
-                            .textSelection(.enabled)
-                    }
-                }
-                .transition(.opacity)
-                .groupedFormStyle()
-                .listStyle(.plain)
-                .toolbar {
-                    ToolbarItem(placement: .automatic) {
+                VStack(spacing: 0) {
+                    // Toolbar items placed inside a conditional branch can be
+                    // dropped by the navigation bar on iOS 15, and a log page
+                    // with no visible actions is useless, so keep them inline.
+                    HStack(spacing: 20) {
                         Button(action: { fill() }) {
                             Image(systemName: "arrow.clockwise")
                         }
-                    }
-                    ToolbarItem(placement: .automatic) {
                         Button(action: { copyToClipboard(LogManager.shared.exportText()) }) {
                             Image(systemName: "doc.on.doc")
                         }
-                    }
-                    ToolbarItem(placement: .automatic) {
                         Button(action: shareLog) {
                             Image(systemName: "square.and.arrow.up")
                         }
+                        Spacer()
+                        Text("\(messages.count) lines")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+
+                    List {
+                        ForEach(Array(messages.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.system(.footnote, design: .monospaced))
+                                .lineLimit(nil)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .transition(.opacity)
+                    .groupedFormStyle()
+                    .listStyle(.plain)
                 }
             } else {
                 VStack(spacing: 24) {

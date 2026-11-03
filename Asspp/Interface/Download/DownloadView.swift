@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct DownloadView: View {
     @ObservedObject private var vm = Downloads.this
@@ -24,14 +23,18 @@ struct DownloadView: View {
         #if os(iOS)
             .fileImporter(
                 isPresented: $importing,
-                allowedContentTypes: [.item],
+                allowedContentTypes: ImportedPackage.pickerTypes,
                 allowsMultipleSelection: false,
             ) { result in
                 switch result {
                 case let .success(urls):
-                    guard let url = urls.first else { return }
+                    guard let url = urls.first else {
+                        logger.info("import: picker returned no file")
+                        return
+                    }
                     importPackage(at: url)
                 case let .failure(error):
+                    logger.error("import: picker failed \(StoreDiagnostics.errorSummary(error))")
                     importError = error.localizedDescription
                 }
             }
@@ -56,16 +59,20 @@ struct DownloadView: View {
     /// the local installer can serve it once it is inside app storage.
     #if os(iOS)
         private func importPackage(at url: URL) {
+            logger.info("import: staging \(url.lastPathComponent)")
             do {
                 let staged = try ImportedPackage.stage(from: url)
+                logger.info("import: staged as \(staged.archive.software.bundleID) \(staged.archive.software.version)")
                 Task { @MainActor in
                     do {
                         importedInstaller = try await Installer(archive: staged.archive, path: staged.url)
                     } catch {
+                        logger.error("import: installer failed \(StoreDiagnostics.errorSummary(error))")
                         importError = error.localizedDescription
                     }
                 }
             } catch {
+                logger.error("import: staging failed \(StoreDiagnostics.errorSummary(error))")
                 importError = error.localizedDescription
             }
         }

@@ -5,12 +5,23 @@
 
 import ApplePackage
 import Foundation
+import UniformTypeIdentifiers
 import ZIPFoundation
 
 /// Stages a store-signed IPA that was downloaded elsewhere so the built-in
 /// OTA installer can serve it. The manifest only needs the bundle identity,
 /// which the package carries in its own Info.plist.
 enum ImportedPackage {
+    /// `ipa` is not a declared system type, so a picker filtered to a narrow
+    /// type dims matching files and their taps do nothing.
+    static let pickerTypes: [UTType] = {
+        var types: [UTType] = [.data, .item]
+        if let ipa = UTType(filenameExtension: "ipa", conformingTo: .data) {
+            types.insert(ipa, at: 0)
+        }
+        return types
+    }()
+
     struct Staged {
         let url: URL
         let archive: AppStore.AppPackage
