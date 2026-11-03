@@ -36,7 +36,7 @@ struct DownloadView: View {
                 }
             }
             .sheet(item: $importedInstaller) {
-                $0.destroy()
+                importedInstaller?.destroy()
                 importedInstaller = nil
             } content: {
                 InstallerView(installer: $0)
