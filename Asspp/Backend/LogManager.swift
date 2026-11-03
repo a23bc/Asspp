@@ -34,6 +34,12 @@ final nonisolated class LogManager: Sendable {
     func getMessages() -> [String] {
         messageQueue.sync { messages }
     }
+
+    /// The whole retained history as one block, so it can be shared or copied
+    /// instead of selecting one entry at a time.
+    func exportText() -> String {
+        messageQueue.sync { messages.joined(separator: "\n\n") }
+    }
 }
 
 struct LogManagerHandler: LogHandler {

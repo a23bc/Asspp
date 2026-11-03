@@ -17,6 +17,21 @@ struct LogView: View {
         messages = LogManager.shared.getMessages()
     }
 
+    private func shareLog() {
+        let text = LogManager.shared.exportText()
+        guard !text.isEmpty else { return }
+        let url = temporaryDirectory
+            .appendingPathComponent("Asspp-\(Int(Date().timeIntervalSince1970)).log")
+        guard (try? text.write(to: url, atomically: true, encoding: .utf8)) != nil,
+              AirDrop(items: [url])
+        else {
+            // Without a share surface, or if the write failed, fall back to the
+            // pasteboard rather than dropping the log silently.
+            copyToClipboard(text)
+            return
+        }
+    }
+
     var body: some View {
         ZStack {
             if unlocked {
@@ -35,6 +50,16 @@ struct LogView: View {
                     ToolbarItem(placement: .automatic) {
                         Button(action: { fill() }) {
                             Image(systemName: "arrow.clockwise")
+                        }
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Button(action: { copyToClipboard(LogManager.shared.exportText()) }) {
+                            Image(systemName: "doc.on.doc")
+                        }
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Button(action: shareLog) {
+                            Image(systemName: "square.and.arrow.up")
                         }
                     }
                 }
