@@ -40,12 +40,13 @@ class Installer: Identifiable, ObservableObject, @unchecked Sendable {
         // iOS may probe the package with HEAD before it commits to a GET, and
         // only GET routes exist today, so record what it asks for and answer
         // the probe with the real size instead of a silent 404.
-        app.on(.head, "*") { [weak self] req in
+        // Vapor 4.121 takes NIO's HTTPMethod here, whose cases are uppercase.
+        app.on(HTTPMethod.HEAD, "*") { [weak self] req in
             guard let self else { return Response(status: .badGateway) }
             logger.info("installer HEAD \(req.url.path) for installer id: \(self.id)")
             var size: Int64?
             if let attrs = try? FileManager.default.attributesOfItem(atPath: packagePath.path) {
-                size = attrs[.size] as? Int64
+                size = (attrs[.size] as? NSNumber)?.int64Value
             }
             guard req.url.path == payloadEndpoint.path, let size else {
                 return Response(status: .notFound)
