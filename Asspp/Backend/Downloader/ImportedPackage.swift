@@ -103,4 +103,39 @@ enum ImportedPackage {
         ) as? [String: Any] else { throw Failure.noAppBundle }
         return plist
     }
+
+    /// Imported packages are staged outside the download list, so they need
+    /// their own accounting and removal path.
+    static func stagedFiles() -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles],
+        ) else { return [] }
+        return enumerator.compactMap { item in
+            guard let url = item as? URL, url.pathExtension == "ipa" else { return nil }
+            return url
+        }
+    }
+
+    static func stagedSize(files: [URL] = stagedFiles()) -> Int64 {
+        files.reduce(Int64(0)) { total, url in
+            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+            return total + Int64(size)
+        }
+    }
+
+    @discardableResult
+    static func clearStaged() -> Int {
+        var removed = 0
+        for file in stagedFiles() {
+            do {
+                try FileManager.default.removeItem(at: file)
+                removed += 1
+            } catch {
+                logger.error("failed to remove imported package: \(file.lastPathComponent)")
+            }
+        }
+        return removed
+    }
 }

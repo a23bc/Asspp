@@ -21,6 +21,20 @@ struct SettingView: View {
     @State private var deviceIdDraft = ""
     @State private var showResetConfirmation = false
 
+    #if os(iOS)
+        @State private var importedCount = 0
+        @State private var importedSize = ""
+
+        private func refreshImported() {
+            let files = ImportedPackage.stagedFiles()
+            importedCount = files.count
+            importedSize = ByteCountFormatter.string(
+                fromByteCount: ImportedPackage.stagedSize(files: files),
+                countStyle: .file,
+            )
+        }
+    #endif
+
     var body: some View {
         formContent
             .inNavigationRoot()
@@ -136,6 +150,29 @@ struct SettingView: View {
             } message: {
                 Text("Changing the device GUID may cause all existing accounts to stop working. Apple limits the number of devices you can sign in with at once.")
             }
+
+            #if os(iOS)
+                Section {
+                    HStack {
+                        if importedCount == 0 {
+                            Text("No imported packages")
+                        } else {
+                            Text("\(importedCount) packages, \(importedSize)")
+                        }
+                        Spacer()
+                        Button("Clear") {
+                            ImportedPackage.clearStaged()
+                            refreshImported()
+                        }
+                        .disabled(importedCount == 0)
+                    }
+                } header: {
+                    Text("Imported Packages")
+                } footer: {
+                    Text("IPAs imported from the Downloads page are kept in this app's storage until cleared here.")
+                }
+                .onAppear { refreshImported() }
+            #endif
 
             Section {
                 Button("Reset", role: .destructive) {
