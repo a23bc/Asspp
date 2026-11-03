@@ -12,8 +12,6 @@ struct DownloadView: View {
 
     #if os(iOS)
         @State private var importing = false
-        @State private var importError: String?
-        @State private var importedInstaller: Installer?
     #endif
 
     var body: some View {
@@ -32,51 +30,13 @@ struct DownloadView: View {
                         logger.info("import: picker returned no file")
                         return
                     }
-                    importPackage(at: url)
+                    ImportedIPAOpener.shared.open(url: url)
                 case let .failure(error):
                     logger.error("import: picker failed \(StoreDiagnostics.errorSummary(error))")
-                    importError = error.localizedDescription
                 }
-            }
-            .sheet(item: $importedInstaller) {
-                importedInstaller?.destroy()
-                importedInstaller = nil
-            } content: {
-                InstallerView(installer: $0)
-            }
-            .alert("Import Failed", isPresented: Binding(
-                get: { importError != nil },
-                set: { if !$0 { importError = nil } },
-            )) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(importError ?? "")
             }
         #endif
     }
-
-    /// An IPA downloaded with another tool still carries Apple's signature, so
-    /// the local installer can serve it once it is inside app storage.
-    #if os(iOS)
-        private func importPackage(at url: URL) {
-            logger.info("import: staging \(url.lastPathComponent)")
-            do {
-                let staged = try ImportedPackage.stage(from: url)
-                logger.info("import: staged as \(staged.archive.software.bundleID) \(staged.archive.software.version)")
-                Task { @MainActor in
-                    do {
-                        importedInstaller = try await Installer(archive: staged.archive, path: staged.url)
-                    } catch {
-                        logger.error("import: installer failed \(StoreDiagnostics.errorSummary(error))")
-                        importError = error.localizedDescription
-                    }
-                }
-            } catch {
-                logger.error("import: staging failed \(StoreDiagnostics.errorSummary(error))")
-                importError = error.localizedDescription
-            }
-        }
-    #endif
 
     private var content: some View {
         Group {

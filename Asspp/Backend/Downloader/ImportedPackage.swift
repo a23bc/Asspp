@@ -13,14 +13,15 @@ import ZIPFoundation
 /// which the package carries in its own Info.plist.
 enum ImportedPackage {
     /// `ipa` is not a declared system type, so a picker filtered to a narrow
-    /// type dims matching files and their taps do nothing.
-    static let pickerTypes: [UTType] = {
-        var types: [UTType] = [.data, .item]
-        if let ipa = UTType(filenameExtension: "ipa", conformingTo: .data) {
-            types.insert(ipa, at: 0)
-        }
-        return types
-    }()
+    /// type dims matching files and taps on them do nothing. The identifier is
+    /// declared in Info.plist as an imported type; data and item remain as a
+    /// fallback for packages the system typed differently.
+    static let pickerTypes: [UTType] = [
+        UTType(importedAs: "com.apple.itunes.ipa"),
+        UTType(filenameExtension: "ipa", conformingTo: .data) ?? .data,
+        .data,
+        .item,
+    ]
 
     struct Staged {
         let url: URL

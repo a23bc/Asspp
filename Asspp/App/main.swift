@@ -93,11 +93,7 @@ private struct App: SwiftUI.App {
             .commands { SidebarMenuCommands() }
         #else
             WindowGroup(id: "main-window") {
-                if #available(iOS 26.0, *) {
-                    NewMainView()
-                } else {
-                    MainView()
-                }
+                RootView()
             }
         #endif
     }
