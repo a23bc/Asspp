@@ -19,7 +19,7 @@ struct ProductView: View {
     }
 
     init(archive: AppStore.AppPackage, region: String) {
-        _archive = StateObject(initialValue: AppPackageArchive(accountID: nil, region: region, package: archive))
+        _archive = StateObject(wrappedValue: AppPackageArchive(accountID: nil, region: region, package: archive))
     }
 
     @ObservedObject private var vm = AppStore.this
