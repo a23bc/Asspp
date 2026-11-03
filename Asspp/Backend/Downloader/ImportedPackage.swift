@@ -92,7 +92,29 @@ enum ImportedPackage {
             formattedPrice: "",
             primaryGenreName: "",
         )
+        if let stagedArchive = try? Archive(url: destination, accessMode: .read) {
+            logger.info("import: package contents \(describe(stagedArchive))")
+        }
         return Staged(url: destination, archive: AppStore.AppPackage(software: software))
+    }
+
+    /// Whether the package can be installed over itms-services at all depends
+    /// on what Apple left inside it, so record that instead of guessing.
+    private static func describe(_ archive: Archive) -> String {
+        var receipt = false
+        var sinf = false
+        var provision = false
+        var metadata = false
+        var entries = 0
+        for entry in archive {
+            entries += 1
+            let path = entry.path
+            if path.hasSuffix("_MASReceipt/receipt") { receipt = true }
+            if path.hasSuffix("/sinf") || path.hasSuffix(".sinf") { sinf = true }
+            if path.hasSuffix("embedded.mobileprovision") { provision = true }
+            if path.hasSuffix("iTunesMetadata.plist") { metadata = true }
+        }
+        return "entries=\(entries) masReceipt=\(receipt) sinf=\(sinf) provision=\(provision) itunesMetadata=\(metadata)"
     }
 
     private static func mainInfoPlist(of package: URL) throws -> [String: Any] {
